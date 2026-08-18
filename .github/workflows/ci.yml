@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 2 * * 1"    
   workflow_dispatch:
     inputs:
       deploy_to_aws:
@@ -68,6 +70,27 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  sast:
+    name: Static application security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: semgrep/semgrep:1.171.0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # CSRF does not apply while the app has no authentication, cookies,
+      # sessions, or state-changing routes. Remove this exclusion if that changes.
+      - name: Run Semgrep
+        run: >-
+          semgrep scan
+          --config auto
+          --error
+          --exclude-rule
+          javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage
+          app
 
   infrastructure:
     name: Infrastructure checks
