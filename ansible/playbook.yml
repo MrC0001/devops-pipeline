@@ -1,0 +1,180 @@
+---
+- name: Set up the server and deploy the app
+  hosts: web
+  become: true
+
+  vars:
+    app_name: devops-pipeline
+    app_user: devops-pipeline
+    app_directory: /opt/devops-pipeline
+    app_port: 3000
+    release_archive: "{{ lookup('env', 'RELEASE_ARCHIVE') }}"
+    app_version: "{{ lookup('env', 'APP_VERSION') }}"
+    git_commit: "{{ lookup('env', 'GIT_COMMIT') }}"
+    deployed_at: "{{ lookup('env', 'DEPLOYED_AT') }}"
+
+  pre_tasks:
+    - name: Wait for SSH
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 300
+
+    - name: Check deployment values
+      ansible.builtin.assert:
+        that:
+          - release_archive | length > 0
+          - app_version | length > 0
+          - git_commit | length > 0
+          - deployed_at | length > 0
+        fail_msg: Deployment metadata is missing.
+
+  tasks:
+    - name: Install Nginx and Node.js
+      ansible.builtin.dnf:
+        name:
+          - nginx
+          - nodejs22
+          - nodejs22-npm
+        state: present
+        update_cache: true
+
+    - name: Set Node.js 22 as the active version
+      ansible.builtin.command:
+        argv:
+          - alternatives
+          - --set
+          - node
+          - /usr/bin/node-22
+      changed_when: false
+
+    - name: Create the app user
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        home: "{{ app_directory }}"
+        shell: /sbin/nologin
+        system: true
+        create_home: false
+
+    - name: Create the app directory
+      ansible.builtin.file:
+        path: "{{ app_directory }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0750"
+
+    - name: Copy the release archive
+      ansible.builtin.copy:
+        src: "{{ release_archive }}"
+        dest: /tmp/devops-pipeline.tgz
+        owner: root
+        group: root
+        mode: "0600"
+      register: release_copy
+
+    - name: Extract the new release  # noqa no-handler
+      ansible.builtin.unarchive:
+        src: /tmp/devops-pipeline.tgz
+        dest: "{{ app_directory }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        remote_src: true
+      when: release_copy.changed
+      notify: Restart application
+
+    - name: Install production dependencies  # noqa no-handler
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/npm-22
+          - ci
+          - --omit=dev
+          - --ignore-scripts
+          - --no-audit
+          - --no-fund
+        chdir: "{{ app_directory }}"
+      become: true
+      become_user: "{{ app_user }}"
+      when: release_copy.changed
+      changed_when: release_copy.changed
+      notify: Restart application
+
+    - name: Add the systemd service
+      ansible.builtin.template:
+        src: devops-pipeline.service.j2
+        dest: "/etc/systemd/system/{{ app_name }}.service"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart application
+
+    - name: Add the Nginx config
+      ansible.builtin.template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload Nginx
+
+    - name: Check the Nginx config
+      ansible.builtin.command: /usr/sbin/nginx -t
+      changed_when: false
+
+    - name: Start and enable the app
+      ansible.builtin.systemd_service:
+        name: "{{ app_name }}"
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Start and enable Nginx
+      ansible.builtin.systemd_service:
+        name: nginx
+        enabled: true
+        state: started
+
+    - name: Restart changed services before the checks
+      ansible.builtin.meta: flush_handlers
+
+    - name: Check the app directly
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/health"
+        return_content: true
+        status_code: 200
+      register: application_health
+      until: application_health.json.status == "ok"
+      retries: 10
+      delay: 2
+      changed_when: false
+
+    - name: Check the app through Nginx
+      ansible.builtin.uri:
+        url: http://127.0.0.1/health
+        return_content: true
+        status_code: 200
+      register: proxy_health
+      until: proxy_health.json.status == "ok"
+      retries: 10
+      delay: 2
+      changed_when: false
+
+    - name: Check the deployed commit
+      ansible.builtin.uri:
+        url: http://127.0.0.1/version
+        return_content: true
+        status_code: 200
+      register: deployed_version
+      failed_when: deployed_version.json.commit != git_commit
+      changed_when: false
+
+  handlers:
+    - name: Restart application
+      ansible.builtin.systemd_service:
+        name: "{{ app_name }}"
+        state: restarted
+        daemon_reload: true
+
+    - name: Reload Nginx
+      ansible.builtin.systemd_service:
+        name: nginx
+        state: reloaded

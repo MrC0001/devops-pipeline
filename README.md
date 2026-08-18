@@ -1,13 +1,20 @@
-# DevOps deployment pipeline
+# DevOps Pipeline
 
-A small deployment-status web application used to demonstrate a CI/CD pipeline,
-Infrastructure as Code, configuration management, and deployment to AWS.
+I built DevOps Pipeline around a small Node.js app that shows which version is running
+and whether it is healthy. Most of the work is in the release process: GitHub Actions
+checks the code, Terraform creates the AWS resources, and Ansible sets up the server
+and deploys the app.
 
-## Current checkpoint
+## How the pipeline works
 
-The application and first shift-left CI gates are implemented. Terraform, Ansible,
-deployment approval, and AWS smoke testing will be added in separate verified
-checkpoints.
+Pull requests and pushes to `main` run the app tests, linting, dependency audit,
+secret scan, Terraform checks, Checkov, and Ansible checks. These jobs do not make
+changes in AWS.
+
+Deployment is started manually from the same workflow after a checked change reaches
+`main`. The job is recorded against the `production` GitHub Environment, creates or
+updates the AWS resources, deploys the selected commit, and finishes with health,
+version, service-status, and log checks.
 
 ## Run locally
 
@@ -20,25 +27,26 @@ npm start
 
 Open `http://localhost:3000`.
 
-The application exposes:
+The app provides:
 
-- `GET /health` for service health.
-- `GET /version` for the deployed version, commit, and timestamp.
-- Structured JSON request logs for operational evidence.
+- `GET /health` to confirm the service is responding.
+- `GET /version` to show the deployed version, commit, and time.
+- JSON request logs that can be read through the systemd journal.
 
 ## Documentation
 
-- [Target architecture](docs/architecture.md)
+- [Architecture](docs/architecture.md)
+- [First deployment guide](docs/first-deployment.md)
 - [Threat model](docs/threat-model.md)
 - [Design decisions](docs/design-decisions.md)
-- [Assessment evidence plan](docs/assessment-evidence.md)
+- [Recording checklist](docs/assessment-evidence.md)
 
-## Planned structure
+## Repository structure
 
 ```text
 app/          Node.js application and tests
-terraform/    AWS infrastructure
-ansible/      EC2 configuration and deployment
-.github/      CI, security, and later deployment workflows
-docs/         Architecture, threat model, and assessment evidence
+terraform/    AWS infrastructure and remote-state configuration
+ansible/      EC2 configuration and application deployment
+.github/      CI/CD, security, and destroy workflows
+docs/         Architecture, decisions, setup, and recording notes
 ```

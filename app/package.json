@@ -1,8 +1,8 @@
 {
-  "name": "devops-deployment-status",
+  "name": "devops-pipeline",
   "version": "1.0.0",
   "private": true,
-  "description": "Small web application for a university DevOps pipeline demonstration",
+  "description": "Shows the version deployed by the DevOps Pipeline",
   "main": "src/server.js",
   "scripts": {
     "lint": "eslint .",

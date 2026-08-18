@@ -1,4 +1,4 @@
-name: CodeQL analysis
+name: DevOps Pipeline CodeQL analysis
 
 on:
   pull_request:
@@ -15,19 +15,19 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze JavaScript
+    name: JavaScript security scan
     if: github.event.repository.private == false
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Initialize CodeQL
+      - name: Set up CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           queries: security-extended
 
-      - name: Analyze application
+      - name: Run CodeQL
         uses: github/codeql-action/analyze@v4

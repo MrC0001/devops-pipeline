@@ -1,0 +1,27 @@
+[Unit]
+Description=DevOps Pipeline application
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_user }}
+WorkingDirectory={{ app_directory }}
+Environment=NODE_ENV=production
+Environment=PORT={{ app_port }}
+Environment=APP_VERSION={{ app_version }}
+Environment=GIT_COMMIT={{ git_commit }}
+Environment=DEPLOYED_AT={{ deployed_at }}
+ExecStart=/usr/bin/node-22 {{ app_directory }}/src/server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{ app_name }}
+
+[Install]
+WantedBy=multi-user.target

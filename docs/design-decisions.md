@@ -1,40 +1,99 @@
 # Design decisions
 
-## Keep the original deployment architecture
+## Keep the app small
 
-GitHub Actions, Terraform, Ansible, EC2, Nginx, systemd, and Node.js remain the
-smallest architecture that demonstrates every required DevOps concern. The latest
-security lesson adds gates around this flow; it does not justify replacing it with a
-larger AWS-native platform.
+The app only needs enough functionality to prove that a release worked. It shows its
+version, commit, deployment time, and current health. I chose not to add a database or
+extra AWS services because they would create more things to maintain without making
+the pipeline clearer.
 
-## Separate pull-request checks from deployment
+## Use GitHub Actions, Terraform, and Ansible together
 
-Pull requests must never create or change AWS resources. They run application and
-security checks only. Deployment will run after a checked change reaches `main`, and
-a GitHub Environment will require approval before Terraform applies anything.
+Each tool has one clear job. GitHub Actions controls the pipeline, Terraform manages
+AWS resources, and Ansible configures the operating system and deploys the app. Nginx
+is the public entry point and systemd keeps the Node.js process running.
 
-This also corrects the supplied DevSecOps workflow, which can start its deployment job
-for a pull request and does not make deployment depend on every security job.
+This is close to the approach used in the lessons, which means I can explain every
+part of it. It also leaves a clear boundary between infrastructure and server
+configuration instead of putting the whole setup into one large script.
 
-## Reuse the lesson's controls, not its application
+## Use manual continuous delivery
 
-The useful additions from the new examples are CodeQL, Gitleaks, dependency auditing,
-Checkov, and ansible-lint. The demo application is not used because its test is empty,
-its Ansible playbook does not install Node dependencies, and its security group permits
-SSH from every IPv4 address. The separate CodeQL project is intentionally vulnerable
-and must remain teaching material rather than deployment code.
+Pull requests must never create or change AWS resources. They run application,
+infrastructure, configuration, and security checks only. Deployment is an explicit
+manual action after a checked change reaches `main`, so this is continuous delivery
+rather than automatic continuous deployment. The `production` GitHub Environment
+records deployments and can apply protection rules if the repository plan supports
+them; the current private repository does not provide a required-reviewer gate.
+
+This avoids a problem I found in one of the lesson examples, where the deployment job
+could start from a pull request without depending on every security check.
+
+## Improve the lesson examples rather than copy them
+
+The example repositories gave me a useful starting point, but I did not use them
+unchanged. One had an empty test, did not install the app dependencies through
+Ansible, and opened SSH to every IPv4 address. The separate CodeQL example contains
+security problems on purpose, so none of that application code belongs in this
+project.
+
+I kept the useful controls from the examples without treating them as interchangeable.
+Gitleaks, dependency auditing, Checkov, and ansible-lint are gates in the main workflow
+and must pass before AWS deployment. CodeQL remains a separate scheduled workflow and
+does not gate this deployment.
 
 ## Keep the repository private initially
 
-Private visibility protects unfinished assessment work. GitHub CodeQL code scanning is
-therefore prepared but safely skipped unless GitHub Code Security is available. Before
-recording, the options are to keep the repository private and demonstrate the other
-security gates, or deliberately make it public so CodeQL results can populate the
-Security tab.
+I am keeping the repository private. CodeQL needs GitHub Code Security for a private
+repository, so the workflow deliberately skips its analysis job while the repository
+is private. Gitleaks, `npm audit`, Checkov, and ansible-lint still run and gate the
+deployment.
+
+In the recording I will show the skipped CodeQL job and explain that a workflow file
+is not evidence that a scanner ran. A production repository would enable an available
+private code-scanning service and make it a required merge check.
 
 ## Use persistent state and temporary access
 
-Terraform state will use an encrypted, versioned S3 backend if Learner Lab permissions
-allow it. AWS credentials remain temporary GitHub secrets and are refreshed for each
-lab session. SSH will be restricted to the active GitHub runner address rather than a
-static personal address or `0.0.0.0/0`.
+Terraform state cannot be left on a GitHub runner because the runner disappears after
+the job. The workflow therefore bootstraps or reuses an encrypted, versioned S3 bucket
+before Terraform is initialised. This bootstrap uses the AWS CLI because the backend
+must exist before Terraform can use it. S3 state locking stops two deployment jobs
+changing the same state at once.
+
+The AWS credentials are temporary GitHub secrets and need to be refreshed when the
+lab session changes. Port 22 is opened only to the public address of the runner doing
+the deployment, rather than a personal address or `0.0.0.0/0`.
+
+## Keep the AWS setup manageable
+
+The project reuses the default VPC and creates one `t2.micro` Amazon Linux 2023
+server with one security group. Custom networking, a load balancer, and managed
+deployment services would add cost and setup without helping this app. Some IAM
+changes may also be restricted by the student account. The server has no IAM role
+because the app does not call any AWS APIs.
+
+Nginx listens on port 80 and forwards traffic to Node.js on loopback port 3000. The
+first version uses HTTP because there is no domain or certificate. A production
+version should use HTTPS, normally through a load balancer or another managed entry
+point. Each Checkov exception is written beside the resource it applies to, with the
+reason included, instead of switching a rule off for the whole repository.
+
+## Use controlled recovery and cleanup
+
+The project does not claim automatic rollback. If a post-deployment check fails, I
+will diagnose the failed run, revert the faulty Git commit where appropriate, and run
+the checked deployment again. A production release process would use versioned
+release directories and an atomic switch back to the last healthy version.
+
+The destroy workflow removes the Terraform-managed EC2 instance and security group
+but keeps the versioned state bucket between test runs. I will remove that bucket and
+its retained object versions as a separate final cleanup after the project no longer
+needs recovery history.
+
+## Keep workflow dependencies maintainable
+
+GitHub Actions currently use trusted major-version tags and Dependabot checks for
+updates. Full commit-SHA pinning would make those dependencies immutable and is a
+production hardening improvement. I kept readable version tags for the first Learner
+Lab run and record the remaining supply-chain risk rather than claiming it is absent.

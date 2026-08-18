@@ -1,0 +1,95 @@
+name: Destroy DevOps Pipeline resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DESTROY to confirm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    name: Destroy project infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      EC2_KEY_NAME: ${{ vars.EC2_KEY_NAME }}
+      TF_IN_AUTOMATION: "true"
+
+    steps:
+      - name: Check confirmation and settings
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          WORKFLOW_REF: ${{ github.ref }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+        run: |
+          test "$CONFIRMATION" = "DESTROY" || { echo "Type DESTROY to continue."; exit 1; }
+          test "$WORKFLOW_REF" = "refs/heads/main" || { echo "Run this workflow from main."; exit 1; }
+          test -n "$AWS_REGION" || { echo "Set the AWS_REGION repository variable."; exit 1; }
+          test -n "$EC2_KEY_NAME" || { echo "Set the EC2_KEY_NAME repository variable."; exit 1; }
+          test -n "$AWS_ACCESS_KEY_ID" || { echo "Add the AWS_ACCESS_KEY_ID secret."; exit 1; }
+          test -n "$AWS_SECRET_ACCESS_KEY" || { echo "Add the AWS_SECRET_ACCESS_KEY secret."; exit 1; }
+          test -n "$AWS_SESSION_TOKEN" || { echo "Add the AWS_SESSION_TOKEN secret."; exit 1; }
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Get Terraform state and runner IP
+        id: environment
+        run: |
+          account_id=$(aws sts get-caller-identity --query Account --output text)
+          state_bucket="devops-pipeline-state-${account_id}-${AWS_REGION}"
+          aws s3api head-bucket --bucket "$state_bucket"
+
+          runner_ip=$(curl --retry 5 --fail --silent --show-error https://checkip.amazonaws.com | tr -d '[:space:]')
+          [[ "$runner_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || { echo "Could not get the runner IP address."; exit 1; }
+
+          echo "state_bucket=$state_bucket" >> "$GITHUB_OUTPUT"
+          echo "ssh_cidr=${runner_ip}/32" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+
+      - name: Initialise Terraform state
+        run: >-
+          terraform -chdir=terraform init -input=false -reconfigure
+          -backend-config="bucket=${{ steps.environment.outputs.state_bucket }}"
+          -backend-config="region=$AWS_REGION"
+
+      - name: Create destroy plan
+        run: >-
+          terraform -chdir=terraform plan -destroy -input=false -out=destroy.tfplan
+          -var="aws_region=$AWS_REGION"
+          -var="key_name=$EC2_KEY_NAME"
+          -var="ssh_cidr=${{ steps.environment.outputs.ssh_cidr }}"
+
+      - name: Apply destroy plan
+        run: terraform -chdir=terraform apply -input=false -auto-approve destroy.tfplan
+
+      - name: Write summary
+        run: |
+          echo "### AWS resources removed" >> "$GITHUB_STEP_SUMMARY"
+          echo "The S3 state bucket has been kept for the next deployment." >> "$GITHUB_STEP_SUMMARY"

@@ -10,10 +10,10 @@ const app = createApp({
   }
 });
 
-app.listen(port, () => {
+app.listen(port, "127.0.0.1", () => {
   console.log(JSON.stringify({
     level: "info",
-    message: "Application started",
+    message: "DevOps Pipeline started",
     port
   }));
 });

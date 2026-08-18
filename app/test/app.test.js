@@ -10,12 +10,12 @@ function makeApp(deployment) {
   return createApp({ deployment, logger: silentLogger });
 }
 
-test("GET / returns the deployment status page", async () => {
+test("GET / returns the DevOps Pipeline page", async () => {
   const response = await request(makeApp()).get("/");
 
   assert.equal(response.status, 200);
   assert.match(response.headers["content-type"], /^text\/html/);
-  assert.match(response.text, /Deployment status/);
+  assert.match(response.text, /DevOps Pipeline/);
   assert.ok(response.headers["content-security-policy"]);
   assert.doesNotMatch(response.headers["content-security-policy"], /upgrade-insecure-requests/);
   assert.equal(response.headers["x-content-type-options"], "nosniff");
