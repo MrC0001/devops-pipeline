@@ -81,8 +81,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # CSRF does not apply while the app has no authentication, cookies,
+      # sessions, or state-changing routes. Remove this exclusion if that changes.
       - name: Run Semgrep
-        run: semgrep scan --config auto --error app
+        run: >-
+          semgrep scan
+          --config auto
+          --error
+          --exclude-rule
+          javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage
+          app
+
   infrastructure:
     name: Infrastructure checks
     runs-on: ubuntu-latest

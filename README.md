@@ -16,6 +16,24 @@ Deployment is started manually from the same workflow after a checked change rea
 updates the AWS resources, deploys the selected commit, and finishes with health,
 version, service-status, and log checks.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    Developer["Developer branch"] --> PR["Pull request"]
+    PR --> Checks["Tests and security checks"]
+    Checks --> Main["main branch"]
+    Main --> Deploy["Manual deployment"]
+    Deploy --> Terraform["Terraform"]
+    Terraform <--> State["S3 remote state"]
+    Terraform -->|creates| EC2["AWS EC2"]
+    Terraform -->|provides IP| Ansible["Ansible"]
+    Ansible -->|configures| EC2
+    EC2 --> Nginx["Nginx :80"]
+    Nginx --> Node["Node.js :3000"]
+    Node --> Smoke["Health and version checks"]
+```
+
 ## Run locally
 
 ```powershell
@@ -33,14 +51,6 @@ The app provides:
 - `GET /version` to show the deployed version, commit, and time.
 - JSON request logs that can be read through the systemd journal.
 
-## Documentation
-
-- [Architecture](docs/architecture.md)
-- [First deployment guide](docs/first-deployment.md)
-- [Threat model](docs/threat-model.md)
-- [Design decisions](docs/design-decisions.md)
-- [Recording checklist](docs/assessment-evidence.md)
-
 ## Repository structure
 
 ```text
@@ -48,5 +58,4 @@ app/          Node.js application and tests
 terraform/    AWS infrastructure and remote-state configuration
 ansible/      EC2 configuration and application deployment
 .github/      CI/CD, security, and destroy workflows
-docs/         Architecture, decisions, setup, and recording notes
 ```
