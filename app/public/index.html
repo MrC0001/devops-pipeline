@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Deployment evidence for the DevOps demonstration application">
+    <title>Deployment status</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="status-card">
+      <p class="eyebrow">DevOps demonstration</p>
+      <h1>Deployment status</h1>
+      <p class="introduction">This page identifies the exact application build currently running.</p>
+
+      <dl class="deployment-details">
+        <div><dt>Version</dt><dd id="version">Loading...</dd></div>
+        <div><dt>Commit</dt><dd id="commit">Loading...</dd></div>
+        <div><dt>Deployed</dt><dd id="deployed-at">Loading...</dd></div>
+      </dl>
+
+      <div class="health-check">
+        <button id="check-health" type="button">Check application health</button>
+        <span id="health-result" role="status" aria-live="polite">Not checked</span>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+node_modules/
+.env
+coverage/
+
+# Terraform working files and local state
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Keys and local inventory
+*.pem
+ansible/inventory.ini
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

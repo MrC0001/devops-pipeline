@@ -1,0 +1,62 @@
+name: Continuous integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    name: Lint, test, and audit application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: app/.nvmrc
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install locked dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Lint application
+        working-directory: app
+        run: npm run lint
+
+      - name: Run application tests
+        working-directory: app
+        run: npm test
+
+      - name: Check dependencies for high-severity vulnerabilities
+        working-directory: app
+        run: npm audit --audit-level=high
+
+  secret-scan:
+    name: Scan Git history for secrets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
