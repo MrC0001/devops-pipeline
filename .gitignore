@@ -17,3 +17,6 @@ ansible/inventory.ini
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local assessment notes
+/recording-plan.md
