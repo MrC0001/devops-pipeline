@@ -32,8 +32,9 @@ workflow, AWS, and the running app.
   app.
 - Explain why I chose EC2, Nginx, systemd, Terraform, Ansible, GitHub Actions, and a
   small Node.js app.
-- Compare SSH with AWS Systems Manager, private and public CodeQL support, and remote
-  Terraform state with local state.
+- Compare SSH with AWS Systems Manager, Semgrep with CodeQL, and remote Terraform
+  state with local state. Explain how private-repository licensing affected the
+  scanner selection.
 - Explain that the S3 backend is bootstrapped by the workflow before Terraform starts,
   and that the generated plan is automatically applied rather than human-reviewed.
 
@@ -42,9 +43,10 @@ workflow, AWS, and the running app.
 - Show one real failed run and explain how I found and fixed the problem.
 - Discuss temporary AWS credentials, remote state, security trade-offs, and what I
   would change for a production system.
-- Be explicit that CodeQL skipped in the private repository and was not a deployment
-  gate. Compare the checks that did run with Sonar, Nexus IQ, TruffleHog, Aqua, ZAP,
-  and Playwright without presenting them as direct substitutes.
+- Explain why I replaced the unavailable CodeQL workflow rather than leaving it
+  skipped, and show Semgrep passing as a deployment gate. Compare the checks with
+  Sonar, Nexus IQ, TruffleHog, Aqua, ZAP, and Playwright without presenting them as
+  direct substitutes.
 - Explain the current git-revert-and-redeploy recovery process, the lack of automatic
   rollback, and the production case for immutable action SHAs and central monitoring.
 - Relate shared ownership, early feedback, blameless improvement, and security-team

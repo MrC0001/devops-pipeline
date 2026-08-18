@@ -39,8 +39,8 @@ flowchart LR
 ## Checks and safeguards
 
 - Tests and linting must pass before the deployment job can run.
-- `npm audit`, Gitleaks, Checkov, and ansible-lint cover dependencies, secrets,
-  infrastructure, and server configuration.
+- `npm audit`, Gitleaks, Semgrep, Checkov, and ansible-lint cover dependencies,
+  committed secrets, application code, infrastructure, and server configuration.
 - Terraform state is encrypted and versioned in S3, with a lock file to prevent two
   runs changing it at once.
 - SSH is limited to the current GitHub runner instead of being open to every address.

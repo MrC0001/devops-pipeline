@@ -37,21 +37,21 @@ Ansible, and opened SSH to every IPv4 address. The separate CodeQL example conta
 security problems on purpose, so none of that application code belongs in this
 project.
 
-I kept the useful controls from the examples without treating them as interchangeable.
-Gitleaks, dependency auditing, Checkov, and ansible-lint are gates in the main workflow
-and must pass before AWS deployment. CodeQL remains a separate scheduled workflow and
-does not gate this deployment.
+I kept the useful controls from the examples without treating them as
+interchangeable. Gitleaks, dependency auditing, Semgrep, Checkov, and
+ansible-lint are gates in the main workflow and must pass before AWS deployment.
 
-## Keep the repository private initially
+## Keep the repository private and use available SAST
 
-I am keeping the repository private. CodeQL needs GitHub Code Security for a private
-repository, so the workflow deliberately skips its analysis job while the repository
-is private. Gitleaks, `npm audit`, Checkov, and ansible-lint still run and gate the
-deployment.
+I am keeping the repository private. GitHub CodeQL requires GitHub Code Security
+for private repositories, which is not available on this account. I replaced it
+with Semgrep Community Edition instead of leaving a security workflow that
+could not run.
 
-In the recording I will show the skipped CodeQL job and explain that a workflow file
-is not evidence that a scanner ran. A production repository would enable an available
-private code-scanning service and make it a required merge check.
+Semgrep performs static analysis on the JavaScript application on every pull
+request and push. It is part of the main workflow, so deployment cannot start
+unless the scan passes. In a production organisation I would compare its
+coverage and reporting with the security tooling already licensed there.
 
 ## Use persistent state and temporary access
 

@@ -20,7 +20,7 @@ service.
 | Vulnerable dependency | The app or build process could be compromised | Lockfile, `npm audit`, Dependabot, and scheduled checks |
 | Unsafe browser content | Injection or cross-site scripting | The app stores no user input, DOM updates use `textContent`, and Helmet sets a Content Security Policy |
 | A pull request changes AWS | Unreviewed code could reach the server | Pull requests run checks only; deployment must be started from checked code on `main` |
-| Workflow has more access than it needs | Repository or supply-chain compromise | Workflows use `contents: read`; extra permission is limited to the CodeQL job that needs it |
+| Workflow has more access than it needs | Repository or supply-chain compromise | Workflows use `contents: read`; Semgrep runs without repository secrets or write permission |
 | SSH is open to the internet | Someone could try to access the server | Port 22 only accepts the current GitHub runner `/32`; Node.js binds to loopback and port 3000 is not exposed |
 | Unsafe Terraform code | AWS resources could be exposed or misconfigured | Formatting, validation, Checkov, and creation of a saved plan all run before the exact saved plan is applied |
 | Server setup changes between runs | Deployment becomes unreliable | The Ansible playbook is checked by ansible-lint, verifies each service, and runs twice with identical inputs to expose non-idempotent tasks |
@@ -30,8 +30,9 @@ service.
 ## Current limits
 
 - AWS Learner Lab credentials expire and must be refreshed before a deployment.
-- CodeQL cannot upload results from a private repository unless GitHub Code Security
-  is available. The other security checks do not have this restriction.
+- Semgrep Community Edition runs directly in the pipeline and blocks deployment
+  when it finds an issue. Its results are stored in workflow logs rather than
+  GitHub's code-scanning dashboard.
 - SSH is used because Ansible needs a route to the server. AWS Systems Manager could
   remove inbound SSH, but it needs IAM permissions that may not be available in the
   student account.

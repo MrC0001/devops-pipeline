@@ -8,8 +8,8 @@ and deploys the app.
 ## How the pipeline works
 
 Pull requests and pushes to `main` run the app tests, linting, dependency audit,
-secret scan, Terraform checks, Checkov, and Ansible checks. These jobs do not make
-changes in AWS.
+secret scan, Semgrep static analysis, Terraform checks, Checkov, and Ansible
+checks. These jobs do not make changes in AWS.
 
 Deployment is started manually from the same workflow after a checked change reaches
 `main`. The job is recorded against the `production` GitHub Environment, creates or
