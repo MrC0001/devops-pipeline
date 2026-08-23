@@ -149,6 +149,7 @@ jobs:
     needs:
       - application
       - secret-scan
+      - sast
       - infrastructure
     runs-on: ubuntu-latest
     timeout-minutes: 30
