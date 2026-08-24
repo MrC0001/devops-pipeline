@@ -24,7 +24,12 @@ locals {
 }
 
 data "aws_route_table" "application" {
-  subnet_id = local.application_subnet_id
+  vpc_id = data.aws_vpc.default.id
+
+  filter {
+    name   = "association.main"
+    values = ["true"]
+  }
 }
 
 data "aws_internet_gateway" "default" {
