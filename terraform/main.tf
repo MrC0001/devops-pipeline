@@ -19,6 +19,26 @@ data "aws_subnets" "default" {
     values = [data.aws_vpc.default.id]
   }
 }
+locals {
+  application_subnet_id = sort(data.aws_subnets.default.ids)[0]
+}
+
+data "aws_route_table" "application" {
+  subnet_id = local.application_subnet_id
+}
+
+data "aws_internet_gateway" "default" {
+  filter {
+    name   = "attachment.vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+resource "aws_route" "internet_access" {
+  route_table_id         = data.aws_route_table.application.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = data.aws_internet_gateway.default.id
+}
 
 data "aws_key_pair" "deployment" {
   key_name = var.key_name
